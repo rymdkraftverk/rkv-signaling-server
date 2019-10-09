@@ -1,0 +1,15 @@
+version: 2.1
+jobs:
+  deploy:
+    docker:
+      - image: rymdkraftverk/ci:latest
+    steps:
+      - checkout
+      - run: heroku git:remote --ssh-git -a rkv-backend
+      - add_ssh_keys
+      - run: ssh-keyscan -H heroku.com >> ~/.ssh/known_hosts
+      - run: git push --force heroku $CIRCLE_BRANCH:master
+workflows:
+  default:
+    jobs:
+      - deploy
