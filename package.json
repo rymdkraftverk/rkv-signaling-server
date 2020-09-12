@@ -12,7 +12,7 @@
     "cors": "^2.8.5",
     "express": "^4.16.4",
     "lodash": "^4.17.15",
-    "node-fetch": "^2.3.0",
+    "node-fetch": "^2.6.1",
     "ramda": "^0.26.1",
     "redis": "^2.8.0",
     "rkv-signaling": "0.0.3",
