@@ -17,7 +17,7 @@
     "redis": "^2.8.0",
     "rkv-signaling": "0.0.3",
     "uuid": "^3.3.2",
-    "ws": "^6.2.0"
+    "ws": "^7.4.6"
   },
   "devDependencies": {
     "eslint": "^5.15.2",
