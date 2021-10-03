@@ -29,6 +29,14 @@ const addScoreBoardEndpoint = (app) => {
   })
 }
 
+const addStatusEndpoint = (app) => {
+  app.get('/status', (_req, res) => {
+    res.json({
+      status: 'ok',
+    })
+  })
+}
+
 const init = (port) => {
   const app = express()
   app.use(express.json())
@@ -38,6 +46,7 @@ const init = (port) => {
 
   addGameEndpoint(app)
   addScoreBoardEndpoint(app)
+  addStatusEndpoint(app)
 
   const httpServer = http.createServer(app)
   httpServer.listen(port)
