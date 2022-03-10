@@ -12,4 +12,8 @@ jobs:
 workflows:
   default:
     jobs:
-      - deploy
+      - deploy:
+          filters:
+            branches:
+              only:
+                - master
