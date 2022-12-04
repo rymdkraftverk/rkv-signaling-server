@@ -5,10 +5,7 @@ jobs:
       - image: rymdkraftverk/ci:latest
     steps:
       - checkout
-      - run: heroku git:remote --ssh-git -a rkv-backend
-      - add_ssh_keys
-      - run: ssh-keyscan -H heroku.com >> ~/.ssh/known_hosts
-      - run: git push --force heroku $CIRCLE_BRANCH:master
+      - run: git push --force https://heroku:$HEROKU_API_KEY@git.heroku.com/rkv-backend.git master
 workflows:
   default:
     jobs:
