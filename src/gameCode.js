@@ -88,8 +88,8 @@ const createInMemoryInterface = () => {
   }
 }
 
-const createEnvInterface = () => {
-  const code = process.env.GAME_CODE.toUpperCase()
+const createEnvInterface = (gameCode) => {
+  const code = gameCode.toUpperCase()
   gameCodeLog(`Game code overriden for demo purposes: "${code}"`)
   return {
     create: () => Promise.resolve(code),
@@ -98,7 +98,9 @@ const createEnvInterface = () => {
 }
 
 const getInterface = () => {
-  if (process.env.GAME_CODE) return createEnvInterface()
+  const { GAME_CODE } = process.env
+
+  if (GAME_CODE) return createEnvInterface(GAME_CODE)
   if (process.env.REDIS_URL) return createRedisInterface()
   return createInMemoryInterface()
 }
