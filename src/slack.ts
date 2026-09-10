@@ -1,13 +1,9 @@
-const fetch = require('node-fetch')
-
 const url = process.env.SLACK_WEBHOOK_URL
 
-const { log } = console
-
-const postScoreBoard = (scoreBoard) => {
+export const postScoreBoard = async (scoreBoard: unknown) => {
   if (!url) {
-    log('SLACK_WEBHOOK_URL not configured')
-    return Promise.resolve()
+    console.log('SLACK_WEBHOOK_URL not configured')
+    return
   }
 
   const body = JSON.stringify({
@@ -16,7 +12,7 @@ const postScoreBoard = (scoreBoard) => {
     text:     JSON.stringify(scoreBoard),
   })
 
-  return fetch(
+  await fetch(
     url,
     {
       method:  'POST',
@@ -24,8 +20,4 @@ const postScoreBoard = (scoreBoard) => {
       headers: { 'Content-Type': 'application/json' },
     },
   )
-}
-
-module.exports = {
-  postScoreBoard,
 }

@@ -2,32 +2,35 @@
   "name": "backend",
   "version": "0.0.1",
   "private": true,
-  "main": "src/index.js",
+  "main": "dist/index.js",
   "scripts": {
-    "start": "node src/index.js",
-    "nodemon": "nodemon src/index.js",
+    "start": "node dist/index.js",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json",
-    "qa": "npm run lint && npm run typecheck"
+    "qa": "npm run lint && npm run typecheck",
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "node --watch --experimental-strip-types src/index.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.16.4",
-    "lodash": "^4.17.15",
-    "node-fetch": "^2.3.0",
-    "ramda": "^0.26.1",
     "redis": "^2.8.0",
     "rkv-signaling": "0.0.3",
-    "uuid": "^3.3.2",
-    "ws": "^6.2.0"
+    "ws": "^8.18.3"
   },
   "devDependencies": {
     "@eslint-community/eslint-plugin-eslint-comments": "^4.8.0",
     "@stylistic/eslint-plugin": "^5.10.0",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^4.17.23",
+    "@types/node": "^22.20.2",
+    "@types/redis": "^2.8.32",
+    "@types/ws": "^8.18.1",
     "eslint": "^9.39.0",
     "eslint-config-airbnb-extended": "^3.2.0",
     "globals": "^16.5.0",
     "nodemon": "^1.18.10",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.0"
   }
 }

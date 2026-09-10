@@ -1,6 +1,6 @@
 const { env } = process
 
-const parseCsv = x => x.split(',')
+const parseCsv = (x: string) => x.split(',')
 
 const config = {
   corsWhitelist: env.CORS_WHITELIST
@@ -8,4 +8,4 @@ const config = {
     : ['http://localhost:8081'],
 }
 
-module.exports = config
+export default config
