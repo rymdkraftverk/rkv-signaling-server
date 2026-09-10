@@ -20,6 +20,15 @@ export default [
     },
   },
   {
+    name:            'rkv-signaling-server/tests',
+    files:           ['test/**/*.ts'],
+    languageOptions: { globals: globals.vitest },
+    rules:           {
+      '@stylistic/max-len':                  'off',
+      'import-x/no-extraneous-dependencies': 'off',
+    },
+  },
+  {
     name:  'rkv-signaling-server/house-style',
     rules: {
       '@eslint-community/eslint-comments/no-unused-disable': 'error',

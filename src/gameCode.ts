@@ -1,7 +1,6 @@
-import redis from 'redis'
-
 const CODE_LENGTH = 4
 const MAX_ATTEMPTS = 10
+const CODE_LIFETIME_MS = 24 * 60 * 60 * 1000
 
 const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
 
@@ -20,83 +19,58 @@ const randomizeCode = () => Array
   .from({ length: CODE_LENGTH }, () => sample(validChars))
   .join('')
 
-const logRedisError = (message: unknown) => {
-  console.error(`[Redis error] ${message}`)
-}
-
 const gameCodeLog = (message: string) => {
   console.log(`[Game code] ${message}`)
 }
-
-type SetKey = (
-  key: string,
-  value: string,
-  mode: string,
-  duration: number,
-) => Promise<unknown>
-
-type ExistsKey = (key: string) => Promise<boolean>
 
 export interface GameCodeInterface {
   create: () => Promise<string>;
   delete: (code: string) => Promise<unknown>;
 }
 
-const createUniqueRandomCode = (
-  set: SetKey,
-  exists: ExistsKey,
-  attempts: number,
-): Promise<string> => {
-  if (attempts > MAX_ATTEMPTS) {
-    return Promise.reject(new Error(`Failed to find a unique code in ${MAX_ATTEMPTS} attempts`))
+// Codes only need to be unique among the games this process is brokering.
+// Everything else it tracks lives in memory too, and a restart drops every
+// socket, so there is no older claimant to collide with.
+export const createGameCodes = (): GameCodeInterface => {
+  const taken = new Map<string, number>()
+
+  const isTaken = (code: string) => {
+    const expiresAt = taken.get(code)
+
+    if (expiresAt === undefined) return false
+
+    // Expire codes to prevent leakage from games that never disconnected cleanly
+    if (expiresAt <= Date.now()) {
+      taken.delete(code)
+      return false
+    }
+
+    return true
   }
-  const candidateCode = randomizeCode()
 
-  return exists(candidateCode)
-    .then(doesExist => (
-      doesExist
-        ? createUniqueRandomCode(set, exists, attempts + 1)
-        // Expire key after 24h to prevent leakage
-        : set(candidateCode, candidateCode, 'EX', 86400)
-          .then(() => candidateCode)
-    ))
-}
-
-const createRedisInterface = (url: string): GameCodeInterface => {
-  const client = redis.createClient({ url })
-  client.on('error', logRedisError)
-
-  const setKey: SetKey = (key, value, mode, duration) => new Promise((resolve, reject) => {
-    client.set(key, value, mode, duration, (err, reply) => (
-      err ? reject(err) : resolve(reply)
-    ))
-  })
-
-  const existsKey: ExistsKey = key => new Promise((resolve, reject) => {
-    client.exists(key, (err, reply) => (
-      err ? reject(err) : resolve(Boolean(reply))
-    ))
-  })
-
-  const deleteKey = (key: string) => new Promise((resolve, reject) => {
-    client.del(key, (err, reply) => (
-      err ? reject(err) : resolve(reply)
-    ))
-  })
-
-  gameCodeLog('Powered by redis')
   return {
-    create: () => createUniqueRandomCode(setKey, existsKey, 0),
-    delete: deleteKey,
+    create: async () => {
+      const code = Array
+        .from({ length: MAX_ATTEMPTS }, randomizeCode)
+        .find(candidate => !isTaken(candidate))
+
+      if (!code) {
+        throw new Error(`Failed to find a unique code in ${MAX_ATTEMPTS} attempts`)
+      }
+
+      taken.set(code, Date.now() + CODE_LIFETIME_MS)
+      return code
+    },
+    delete: async (code) => {
+      taken.delete(code)
+      return code
+    },
   }
 }
 
 const createInMemoryInterface = (): GameCodeInterface => {
-  gameCodeLog('Resorting to in memory-tracking. Uniqueness is not guaranteed')
-  return {
-    create: () => Promise.resolve(randomizeCode()),
-    delete: () => Promise.resolve('N/A'),
-  }
+  gameCodeLog('Tracking codes in memory')
+  return createGameCodes()
 }
 
 const createEnvInterface = (gameCode: string): GameCodeInterface => {
@@ -109,10 +83,9 @@ const createEnvInterface = (gameCode: string): GameCodeInterface => {
 }
 
 const getInterface = (): GameCodeInterface => {
-  const { GAME_CODE, REDIS_URL } = process.env
+  const { GAME_CODE } = process.env
 
   if (GAME_CODE) return createEnvInterface(GAME_CODE)
-  if (REDIS_URL) return createRedisInterface(REDIS_URL)
   return createInMemoryInterface()
 }
 
