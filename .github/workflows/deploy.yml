@@ -1,0 +1,30 @@
+name: deploy
+on:
+  push:
+    branches: [master]
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: fogpipe/cloud-actions/auth@v1
+        with:
+          service-account: a41e68ad-192a-4d38-aa77-0c65b48c6446
+
+      - id: registry
+        uses: fogpipe/cloud-actions/registry-login@v1
+
+      - name: Build & push
+        run: |
+          IMG="${{ steps.registry.outputs.repository }}/signaling:${{ github.sha }}"
+          docker build -t "$IMG" .
+          docker push "$IMG"
+          echo "IMAGE=$IMG" >> "$GITHUB_ENV"
+
+      - run: fpcloud --project games app deploy signaling --image "$IMAGE" --release "${GITHUB_SHA::7}"
