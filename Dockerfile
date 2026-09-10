@@ -2,12 +2,13 @@ FROM node:16.7
 
 WORKDIR /app
 
-COPY package.json ./
-COPY package-lock.json ./
+COPY --chown=node:node package.json package-lock.json ./
 
 RUN npm ci --production
 
-COPY src ./src
+COPY --chown=node:node src ./src
+
+USER node
 
 EXPOSE 3000
 
