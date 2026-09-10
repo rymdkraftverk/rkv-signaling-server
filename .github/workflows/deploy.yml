@@ -27,4 +27,10 @@ jobs:
           docker push "$IMG"
           echo "IMAGE=$IMG" >> "$GITHUB_ENV"
 
-      - run: fpcloud --project games app deploy signaling --image "$IMAGE" --release "${GITHUB_SHA::7}"
+      - uses: fogpipe/cloud-actions/deploy@v1
+        with:
+          project: games
+          app: signaling
+          image: ${{ env.IMAGE }}
+          port: "3000"
+          ingress: all
