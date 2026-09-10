@@ -160,7 +160,9 @@ const init = (httpServer, onReceiverDelete) => {
     // Heroku times out all HTTP requests after 55 sec of inactivity
     // https://devcenter.heroku.com/articles/http-routing#timeouts
     const keepAliveId = setInterval(
-      () => { socket.ping(pingMessage(client)) },
+      () => {
+        socket.ping(pingMessage(client))
+      },
       30000, // 30 sec
     )
 
