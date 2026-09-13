@@ -6,7 +6,6 @@ COPY package.json package-lock.json tsconfig.json tsconfig.build.json ./
 RUN npm ci
 
 COPY src ./src
-COPY types ./types
 RUN npm run build
 
 FROM node:22-slim
