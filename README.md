@@ -1,9 +1,19 @@
 # rkv-signaling-server
 
-## Start with specific game code
+The broker the games and controllers meet at. It hands out game codes over HTTP
+and relays the WebRTC handshake over WebSocket, then steps aside.
 
-`npm i && GAME_CODE=demo npm start`
+Runs on Deno.
 
-## Default URL
+```
+deno task dev     # serve on :3000 with reload
+deno task qa      # test, lint, format check, type check
+deno task start   # what the container runs
+```
 
-`localhost:3000`
+Environment: `PORT`, `CORS_WHITELIST` (comma separated origins the games are
+served from), `SLACK_WEBHOOK_URL` for score boards, `GAME_CODE` to pin every
+game to one code for demos, `VERSION` for the startup log.
+
+The shared protocol pieces come straight from the `rkv-signaling` source at a
+pinned commit, see `deno.json`.

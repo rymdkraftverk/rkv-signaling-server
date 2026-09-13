@@ -1,24 +1,13 @@
-FROM node:22-slim AS build
+FROM denoland/deno:2.9.6
 
 WORKDIR /app
 
-COPY package.json package-lock.json tsconfig.json tsconfig.build.json ./
-RUN npm ci
+COPY --chown=deno:deno deno.json deno.lock ./
+COPY --chown=deno:deno src ./src
+RUN deno install --entrypoint src/index.ts
 
-COPY src ./src
-RUN npm run build
-
-FROM node:22-slim
-
-WORKDIR /app
-
-COPY --chown=node:node package.json package-lock.json ./
-RUN npm ci --omit=dev
-
-COPY --chown=node:node --from=build /app/dist ./dist
-
-USER node
+USER deno
 
 EXPOSE 3000
 
-CMD ["npm", "start"]
+CMD ["deno", "task", "start"]

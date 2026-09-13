@@ -1,83 +1,68 @@
-import { createGameCodes } from '../src/gameCode'
+import { assertEquals, assertMatch, assertRejects } from '@std/assert'
+import { stub } from '@std/testing/mock'
+import { FakeTime } from '@std/testing/time'
+import { createGameCodes } from '../src/gameCode.ts'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
 // Pins every candidate to the same code, so claiming and freeing are observable
 const alwaysTheSameCode = () => {
-  vi.spyOn(Math, 'random')
-.mockReturnValue(0)
-  return 'AAAA'
+  const random = stub(Math, 'random', () => 0)
+  return { code: 'AAAA', [Symbol.dispose]: () => random.restore() }
 }
 
-afterEach(() => {
-  vi.restoreAllMocks()
-  vi.useRealTimers()
-})
-
-test('codes are four letters from the unambiguous alphabet', async () => {
+Deno.test('codes are four letters from the unambiguous alphabet', async () => {
   const { create } = createGameCodes()
 
-  expect(await create())
-    .toMatch(/^[A-FHJ-Z]{4}$/)
+  assertMatch(await create(), /^[A-FHJ-Z]{4}$/)
 })
 
-test('never hands out a code twice', async () => {
+Deno.test('never hands out a code twice', async () => {
   const { create } = createGameCodes()
   const codes = await Promise.all(Array.from({ length: 200 }, create))
 
-  expect(new Set(codes).size)
-    .toEqual(codes.length)
+  assertEquals(new Set(codes).size, codes.length)
 })
 
-test('gives up rather than looping forever when codes run out', async () => {
+Deno.test('gives up rather than looping forever when codes run out', async () => {
   const { create } = createGameCodes()
-  alwaysTheSameCode()
+  using _pinned = alwaysTheSameCode()
 
   await create()
 
-  await expect(create())
-    .rejects
-    .toThrow(/unique code/)
+  await assertRejects(() => create(), Error, 'unique code')
 })
 
-test('frees a code once it is deleted', async () => {
+Deno.test('frees a code once it is deleted', async () => {
   const { create, delete: remove } = createGameCodes()
-  const code = alwaysTheSameCode()
+  using pinned = alwaysTheSameCode()
 
-  expect(await create())
-    .toEqual(code)
-  await remove(code)
+  assertEquals(await create(), pinned.code)
+  await remove(pinned.code)
 
-  expect(await create())
-    .toEqual(code)
+  assertEquals(await create(), pinned.code)
 })
 
-test('frees a code once it has expired', async () => {
-  vi.useFakeTimers()
-
+Deno.test('frees a code once it has expired', async () => {
+  using time = new FakeTime()
   const { create } = createGameCodes()
-  const code = alwaysTheSameCode()
+  using pinned = alwaysTheSameCode()
 
-  expect(await create())
-    .toEqual(code)
+  assertEquals(await create(), pinned.code)
 
-  vi.advanceTimersByTime(DAY_MS + 1)
+  time.tick(DAY_MS + 1)
 
-  expect(await create())
-    .toEqual(code)
+  assertEquals(await create(), pinned.code)
 })
 
-test('holds a code for the whole day', async () => {
-  vi.useFakeTimers()
-
+Deno.test('holds a code for the whole day', async () => {
+  using time = new FakeTime()
   const { create } = createGameCodes()
-  alwaysTheSameCode()
+  using _pinned = alwaysTheSameCode()
 
   await create()
 
-  vi.advanceTimersByTime(DAY_MS - 1)
+  time.tick(DAY_MS - 1)
 
-  await expect(create())
-    .rejects
-    .toThrow(/unique code/)
+  await assertRejects(() => create(), Error, 'unique code')
 })

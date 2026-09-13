@@ -11,21 +11,23 @@ const blacklistedLetters = [
   'G', // Sometimes confused with C at at quick glance
 ]
 
-const validChars = alphabet.filter(c => !blacklistedLetters.includes(c))
+const validChars = alphabet.filter((c) => !blacklistedLetters.includes(c))
 
-const sample = (chars: string[]) => chars[Math.floor(Math.random() * chars.length)]
+const sample = (chars: string[]) =>
+  chars[Math.floor(Math.random() * chars.length)]
 
-const randomizeCode = () => Array
-  .from({ length: CODE_LENGTH }, () => sample(validChars))
-  .join('')
+const randomizeCode = () =>
+  Array
+    .from({ length: CODE_LENGTH }, () => sample(validChars))
+    .join('')
 
 const gameCodeLog = (message: string) => {
   console.log(`[Game code] ${message}`)
 }
 
-export interface GameCodeInterface {
-  create: () => Promise<string>;
-  delete: (code: string) => Promise<unknown>;
+export type GameCodeInterface = {
+  create: () => Promise<string>
+  delete: (code: string) => Promise<unknown>
 }
 
 // Codes only need to be unique among the games this process is brokering.
@@ -49,21 +51,23 @@ export const createGameCodes = (): GameCodeInterface => {
   }
 
   return {
-    create: async () => {
+    create: () => {
       const code = Array
         .from({ length: MAX_ATTEMPTS }, randomizeCode)
-        .find(candidate => !isTaken(candidate))
+        .find((candidate) => !isTaken(candidate))
 
       if (!code) {
-        throw new Error(`Failed to find a unique code in ${MAX_ATTEMPTS} attempts`)
+        return Promise.reject(
+          new Error(`Failed to find a unique code in ${MAX_ATTEMPTS} attempts`),
+        )
       }
 
       taken.set(code, Date.now() + CODE_LIFETIME_MS)
-      return code
+      return Promise.resolve(code)
     },
-    delete: async (code) => {
+    delete: (code) => {
       taken.delete(code)
-      return code
+      return Promise.resolve(code)
     },
   }
 }
@@ -83,9 +87,9 @@ const createEnvInterface = (gameCode: string): GameCodeInterface => {
 }
 
 const getInterface = (): GameCodeInterface => {
-  const { GAME_CODE } = process.env
+  const gameCode = Deno.env.get('GAME_CODE')
 
-  if (GAME_CODE) return createEnvInterface(GAME_CODE)
+  if (gameCode) return createEnvInterface(gameCode)
   return createInMemoryInterface()
 }
 

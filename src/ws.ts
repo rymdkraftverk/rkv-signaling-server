@@ -1,52 +1,52 @@
-import type { Server as HttpServer } from 'node:http'
-import { randomUUID } from 'node:crypto'
-import { WebSocketServer, type WebSocket } from 'ws'
-
-import { common, Event } from 'rkv-signaling'
-
-const {
-  warnNotFound, wsSend, onWsMessage, prettyId,
-} = common
+import {
+  onWsMessage,
+  prettyId,
+  warnNotFound,
+  wsSend,
+} from 'rkv-signaling/common.ts'
+import Event from 'rkv-signaling/event.ts'
 
 const Type = {
   INITIATOR: 'initiator',
-  RECEIVER:  'receiver',
+  RECEIVER: 'receiver',
 } as const
 
-interface Client {
-  id:          string;
-  socket:      WebSocket;
-  type:        typeof Type[keyof typeof Type];
-  receiverId?: string;
+type Client = {
+  id: string
+  socket: WebSocket
+  type: typeof Type[keyof typeof Type]
+  receiverId?: string
 }
 
-// state
-let clients: Client[] = []
-// end state
+const clients: Client[] = []
 
 const createClient = (socket: WebSocket) => {
   const client: Client = {
-    id:   randomUUID(),
+    id: crypto.randomUUID(),
     socket,
-    type: Type.INITIATOR, // receiver clients get upgraded in onReceiverCreate
+    type: Type.INITIATOR, // receiver clients get upgraded in onReceiverUpgrade
   }
 
-  clients = clients.concat(client)
+  clients.push(client)
   return client
 }
 
 const removeClient = (id: string) => {
-  clients = clients.filter(c => c.id !== id)
+  const index = clients.findIndex((c) => c.id === id)
+  if (index >= 0) {
+    clients.splice(index, 1)
+  }
 }
 
-const getClient = (id: string) => clients.find(x => x.id === id)
+const getClient = (id: string) => clients.find((x) => x.id === id)
 
-const getReceiverClient = (receiverId: string) => clients.find(x => x.type === Type.RECEIVER
-    && x.receiverId === receiverId.toUpperCase())
+const getReceiverClient = (receiverId: string) =>
+  clients.find((x) =>
+    x.type === Type.RECEIVER && x.receiverId === receiverId.toUpperCase()
+  )
 
-const prettyClient = (client: Client) => `${client.type}(${prettyId(client.id)})`
-
-const pingMessage = (client: Client) => `[Ping] ${prettyId(client.id)}`
+const prettyClient = (client: Client) =>
+  `${client.type}(${prettyId(client.id)})`
 
 const onReceiverUpgrade = (client: Client) => (receiverId: string) => {
   client.type = Type.RECEIVER
@@ -54,10 +54,11 @@ const onReceiverUpgrade = (client: Client) => (receiverId: string) => {
   console.log(`[Receiver upgrade] ${prettyClient(client)}`)
 }
 
-const onOffer = (client: Client) => ({ receiverId, channelInfos, offer }: {
-  receiverId:   string;
-  channelInfos: unknown;
-  offer:        unknown;
+const onOffer = (client: Client) =>
+({ receiverId, channelInfos, offer }: {
+  receiverId: string
+  channelInfos: unknown
+  offer: unknown
 }) => {
   const receiver = getReceiverClient(receiverId)
 
@@ -69,19 +70,17 @@ const onOffer = (client: Client) => ({ receiverId, channelInfos, offer }: {
 
   console.log(`[Offer] ${prettyClient(client)} -> ${prettyClient(receiver)}`)
 
-  wsSend(receiver.socket)(
-    Event.OFFER,
-    {
-      channelInfos,
-      initiatorId: client.id,
-      offer,
-    },
-  )
+  wsSend(receiver.socket)(Event.OFFER, {
+    channelInfos,
+    initiatorId: client.id,
+    offer,
+  })
 }
 
-const onAnswer = (client: Client) => ({ initiatorId, answer }: {
-  initiatorId: string;
-  answer:      unknown;
+const onAnswer = (client: Client) =>
+({ initiatorId, answer }: {
+  initiatorId: string
+  answer: unknown
 }) => {
   const initiator = getClient(initiatorId)
 
@@ -97,44 +96,34 @@ const onAnswer = (client: Client) => ({ initiatorId, answer }: {
 const onClose = (
   client: Client,
   onReceiverDelete: (receiverId: string) => unknown,
-  keepAliveId: NodeJS.Timeout,
-) => () => {
+) =>
+() => {
   console.log(`[Client close] ${prettyClient(client)}`)
-  clearInterval(keepAliveId)
   removeClient(client.id)
   if (client.type === Type.RECEIVER && client.receiverId) {
     onReceiverDelete(client.receiverId)
   }
 }
 
-export const init = (
-  httpServer: HttpServer,
+export const accept = (
+  request: Request,
   onReceiverDelete: (receiverId: string) => unknown,
 ) => {
-  const server = new WebSocketServer({ server: httpServer })
+  const { socket, response } = Deno.upgradeWebSocket(request)
 
-  server.on('connection', (socket) => {
+  socket.onopen = () => {
     const client = createClient(socket)
     console.log(`[Client connect] ${prettyClient(client)}`)
     wsSend(client.socket)(Event.CLIENT_ID, client.id)
 
-    // Heroku times out all HTTP requests after 55 sec of inactivity
-    // https://devcenter.heroku.com/articles/http-routing#timeouts
-    const keepAliveId = setInterval(
-      () => {
-        socket.ping(pingMessage(client))
-      },
-      30000, // 30 sec
-    )
+    socket.onmessage = ({ data }) =>
+      onWsMessage<never>({
+        [Event.RECEIVER_UPGRADE]: onReceiverUpgrade(client),
+        [Event.ANSWER]: onAnswer(client),
+        [Event.OFFER]: onOffer(client),
+      })(String(data))
+    socket.onclose = onClose(client, onReceiverDelete)
+  }
 
-    // Uncomment to debug ping/pong
-    // socket.on('pong', data => console.log(data.toString()))
-
-    socket.on('message', message => onWsMessage<never>({
-      [Event.RECEIVER_UPGRADE]: onReceiverUpgrade(client),
-      [Event.ANSWER]:           onAnswer(client),
-      [Event.OFFER]:            onOffer(client),
-    })(String(message)))
-    socket.on('close', onClose(client, onReceiverDelete, keepAliveId))
-  })
+  return response
 }
